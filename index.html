@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FNF OGG Player</title>
+<style>
+:root{color-scheme:dark;--line:#393944;--red:#ff3b50;--text:#f6f6f8;--muted:#aaaab8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px 14px;background:radial-gradient(circle at top,#30202b,#101014 50%);color:var(--text);font-family:system-ui,sans-serif}
+main{max-width:760px;margin:auto}h1{text-align:center;margin:0;font-size:clamp(1.8rem,5vw,2.7rem)}.subtitle{text-align:center;color:var(--muted);margin:8px 0 24px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:16px}button,.file-label{border:1px solid var(--line);border-radius:12px;padding:12px;color:var(--text);background:#25252f;font:inherit;font-weight:700;cursor:pointer}.tabs button.active,.primary{background:var(--red);border-color:var(--red)}
+.card{background:#1b1b23;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 35px #0004}h2{margin:0 0 6px;font-size:1.25rem}.hint{margin:0 0 16px;color:var(--muted);font-size:.93rem}
+.track{display:grid;gap:9px;padding:14px 0;border-top:1px solid var(--line)}.track-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.track-name{font-weight:750}.filename{display:block;color:var(--muted);font-size:.82rem;overflow-wrap:anywhere;margin-top:3px}
+input[type=file]{display:none}.file-label{display:inline-block;padding:8px 12px;font-size:.9rem}.volume{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:.88rem}input[type=range]{width:100%;accent-color:var(--red)}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.controls button{flex:1;min-width:125px}.status{min-height:1.4em;margin:14px 0 0;color:var(--muted);font-size:.9rem}.note{margin:16px 2px 0;color:var(--muted);font-size:.85rem;line-height:1.5}
+@media(max-width:500px){body{padding:18px 10px}.card{padding:14px}.tabs{gap:5px}.tabs button{padding:9px 3px;font-size:.8rem}.track-head{align-items:flex-start;flex-direction:column}.file-label{width:100%;text-align:center}}
+</style></head><body><main>
+<h1>🎵 FNF OGG Player</h1><p class="subtitle">Load, play, and download your FNF song audio files.</p>
+<div class="tabs" role="tablist" aria-label="Audio mode">
+<button id="tab1" class="active" type="button">Mode 1 · Inst</button><button id="tab2" type="button">Mode 2 · Voices</button><button id="tab3" type="button">Mode 3 · Stems</button>
+</div><section class="card"><h2 id="modeTitle">Mode 1: Instrumental only</h2><p class="hint" id="modeHint">Upload Inst.ogg to play the instrumental.</p><div id="tracks"></div>
+<div class="controls"><button id="play" class="primary" type="button">▶ Play together</button><button id="pause" type="button">⏸ Pause</button><button id="stop" type="button">■ Stop / rewind</button><button id="download" type="button">⬇ Download files</button></div>
+<p class="status" id="status" aria-live="polite">Choose your audio file(s) to begin.</p></section>
+<p class="note">Mode 1: <b>Inst.ogg</b> only. Mode 2: <b>Inst.ogg</b> + <b>Voices.ogg</b>. Mode 3: <b>Inst.ogg</b> + <b>player.ogg</b> + <b>opponent.ogg</b>. The download button exports selected files using these filenames. Combined Voices.ogg is not automatically split into player and opponent vocals.</p>
+</main><script>
+const modes={
+1:{title:'Mode 1: Instrumental only',hint:'Upload Inst.ogg to play the instrumental.',tracks:[{id:'inst',label:'Instrumental',expected:'Inst.ogg',output:'Inst.ogg'}]},
+2:{title:'Mode 2: Instrumental + Voices',hint:'Upload Inst.ogg and Voices.ogg to play both together.',tracks:[{id:'inst',label:'Instrumental',expected:'Inst.ogg',output:'Inst.ogg'},{id:'voices',label:'Voices',expected:'Voices.ogg',output:'Voices.ogg'}]},
+3:{title:'Mode 3: Instrumental + Player + Opponent',hint:'Upload all three OGG files to play them together.',tracks:[{id:'inst',label:'Instrumental',expected:'Inst.ogg',output:'Inst.ogg'},{id:'player',label:'Player vocals',expected:'player.ogg',output:'player.ogg'},{id:'opponent',label:'Opponent vocals',expected:'opponent.ogg',output:'opponent.ogg'}]}
+};
+let currentMode=1;const audio={};const files={};
+function activeIds(){return modes[currentMode].tracks.map(t=>t.id)}
+function stopIds(ids){ids.forEach(id=>{if(audio[id]){audio[id].pause();try{audio[id].currentTime=0}catch(e){}}})}
+function renderMode(mode){
+stopIds(Object.keys(audio));currentMode=mode;const cfg=modes[mode];document.getElementById('modeTitle').textContent=cfg.title;document.getElementById('modeHint').textContent=cfg.hint;
+[1,2,3].forEach(n=>document.getElementById('tab'+n).classList.toggle('active',n===mode));const root=document.getElementById('tracks');root.innerHTML='';
+cfg.tracks.forEach(t=>{const row=document.createElement('div');row.className='track';row.innerHTML=`<div class="track-head"><div><div class="track-name">${t.label}</div><span class="filename" id="name-${t.id}">${files[t.id]?files[t.id].name:'No file selected · expected '+t.expected}</span></div><label class="file-label" for="file-${t.id}">Choose OGG</label><input id="file-${t.id}" type="file" accept=".ogg,audio/ogg,audio/*"></div><label class="volume" for="volume-${t.id}">Volume <input id="volume-${t.id}" type="range" min="0" max="1" value="1" step=".01"></label>`;root.appendChild(row);
+row.querySelector('input[type=file]').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(!f)return;files[t.id]=f;document.getElementById('name-'+t.id).textContent=f.name;if(audio[t.id]){audio[t.id].pause();URL.revokeObjectURL(audio[t.id].src)}audio[t.id]=new Audio(URL.createObjectURL(f));audio[t.id].preload='auto';audio[t.id].volume=Number(row.querySelector('input[type=range]').value);document.getElementById('status').textContent=f.name+' loaded.'});
+row.querySelector('input[type=range]').addEventListener('input',e=>{if(audio[t.id])audio[t.id].volume=Number(e.target.value)});
+});document.getElementById('status').textContent='Choose your audio file(s) to begin.';
+}
+[1,2,3].forEach(n=>document.getElementById('tab'+n).addEventListener('click',()=>renderMode(n)));
+document.getElementById('play').addEventListener('click',async()=>{const ids=activeIds();if(ids.some(id=>!audio[id])){document.getElementById('status').textContent='Please choose every audio file for this mode first.';return}ids.forEach(id=>{audio[id].pause();audio[id].currentTime=0});try{await Promise.all(ids.map(id=>audio[id].play()));document.getElementById('status').textContent='Playing tracks together.'}catch(e){document.getElementById('status').textContent='Playback failed. Try another OGG file or browser.'}});
+document.getElementById('pause').addEventListener('click',()=>{activeIds().forEach(id=>{if(audio[id])audio[id].pause()});document.getElementById('status').textContent='Paused.'});
+document.getElementById('stop').addEventListener('click',()=>{stopIds(activeIds());document.getElementById('status').textContent='Stopped and rewound.'});
+document.getElementById('download').addEventListener('click',()=>{const chosen=modes[currentMode].tracks.filter(t=>files[t.id]);if(!chosen.length){document.getElementById('status').textContent='Choose at least one OGG file before downloading.';return}chosen.forEach((t,i)=>{const url=URL.createObjectURL(files[t.id]);const a=document.createElement('a');a.href=url;a.download=t.output;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1800+i*300)});document.getElementById('status').textContent=`Downloading ${chosen.length} file(s). Your browser may ask permission for multiple downloads.`});
+renderMode(1);
+</script></body></html>
